@@ -454,7 +454,7 @@ func (m *mp4) WriteAAC(p []byte) {
 	m.Write(&av.Packet{Codec:av.AAC, Data:p})
 }
 
-func (m *mp4) Close() {
+func (m *mp4) closeWriter() {
 	l.Printf("  ntrk %v", len(m.trk))
 
 	var b bytes.Buffer
