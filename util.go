@@ -1,26 +1,8 @@
 
-/*
-Golang MP4 Library
-
-Example: Open a mp4 file and read h264/aac data
-
-	m, _:= mp4.Open("example.mp4")
-	m.SeekKey(33.0) // seek to key frame closest to 33.0 second
-	pkts := m.ReadDur(10.0) // read h264/aac packets in next 10 seconds
-
-Example: Create a mp4 file and write h264/aac data
-
-	m, _:= mp4.Create("example.mp4")
-	pkt := av.Packet{
-		Key:true
-	}
-	m.Write()
-
-
-*/
 package mp4
 
 import (
+	"github.com/go-av/av"
 	"io"
 	"log"
 	"os"
@@ -28,8 +10,16 @@ import (
 	"bytes"
 )
 
+type dummyWriter struct {
+}
+
+func (m *dummyWriter) Write(p []byte) (n int, err error) {
+	return 0, nil
+}
+
 var (
-	l = log.New(os.Stderr, "mp4: ", 0)
+	dummyW = &dummyWriter{}
+	l = log.New(dummyW, "mp4: ", 0)
 )
 
 type mp4trk struct {
@@ -183,7 +173,7 @@ func (m *mp4) SeekKey(pos float32) {
 	}
 }
 
-func (m *mp4) readTo(trks []*mp4trk, end float32) (ret []*Packet, pos float32) {
+func (m *mp4) readTo(trks []*mp4trk, end float32) (ret []*av.Packet, pos float32) {
 	for {
 		var mt *mp4trk
 		for _, t := range trks {
@@ -204,7 +194,7 @@ func (m *mp4) readTo(trks []*mp4trk, end float32) (ret []*Packet, pos float32) {
 		}
 		b := make([]byte, mt.index[mt.i].size)
 		m.rat.ReadAt(b, mt.index[mt.i].off)
-		ret = append(ret, &Packet{
+		ret = append(ret, &av.Packet{
 			Codec:mt.codec, Key:mt.index[mt.i].key,
 			Pos:mt.index[mt.i].pos, Data:b,
 		})
@@ -213,7 +203,7 @@ func (m *mp4) readTo(trks []*mp4trk, end float32) (ret []*Packet, pos float32) {
 	return
 }
 
-func (m *mp4) ReadDur(dur float32) (ret []*Packet) {
+func (m *mp4) ReadDur(dur float32) (ret []*av.Packet) {
 	l.Printf("ReadDur %f\n", dur)
 	ret, m.Pos = m.readTo([]*mp4trk{m.vtrk, m.atrk}, m.Pos + dur)
 	l.Printf(" got %d packets\n", len(ret))
@@ -239,4 +229,9 @@ func Open(path string) (m *mp4, err error) {
 	return
 }
 
+func LogLevel(i int) {
+	if (i > 0) {
+		l = log.New(os.Stderr, "mp4: ", 0)
+	}
+}
 

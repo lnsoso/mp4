@@ -2,10 +2,10 @@
 package mp4
 
 import (
+	"github.com/go-av/av"
 	"os"
 	"io"
 	"fmt"
-	"log"
 	"bytes"
 )
 
@@ -45,10 +45,10 @@ func (m *mp4) writeTKHD(w io.Writer, t *mp4trk) {
 		WriteInt(w, 0, 2) // layer
 
 		switch t.codec {
-		case H264:
+		case av.H264:
 			WriteInt(w, 1, 2) // alternate group
 			WriteInt(w, 0, 2) // alternate group
-		case AAC:
+		case av.AAC:
 			WriteInt(w, 2, 2) // alternate group
 			WriteInt(w, 0x100, 2) // volume
 		default:
@@ -96,10 +96,10 @@ func (m *mp4) writeHDLR(w io.Writer, t *mp4trk) {
 
 		var hdlrtype, desc string
 		switch t.codec {
-		case H264:
+		case av.H264:
 			hdlrtype = "vide"
 			desc = "VideoHandler"
-		case AAC:
+		case av.AAC:
 			hdlrtype = "soun"
 			desc = "SoundHandler"
 		}
@@ -194,12 +194,12 @@ func (m *mp4) writeESDS(w io.Writer, t *mp4trk) {
 			WriteDescr(w, 4, func (w io.Writer) {
 				bufsize := 1000
 				switch t.codec {
-				case H264:
+				case av.H264:
 					WriteInt(w, 0x21, 1)
 					WriteInt(w, 0x11, 1) // video stream
 					WriteInt(w, bufsize, 3)
 					WriteInt(w, 50*1000, 4) // bitrate
-				case AAC:
+				case av.AAC:
 					WriteInt(w, 0x40, 1)
 					WriteInt(w, 0x15, 1) // audio stream
 					WriteInt(w, bufsize, 3)
@@ -242,9 +242,9 @@ func (m *mp4) writeSTSD(w io.Writer, t *mp4trk) {
 		WriteInt(w, 0, 4) // version & flags
 		WriteInt(w, 1, 4) // entry count
 		switch t.codec {
-		case H264:
+		case av.H264:
 			m.writeVideoTag(w, t)
-		case AAC:
+		case av.AAC:
 			m.writeAudioTag(w, t)
 		}
 	})
@@ -285,7 +285,7 @@ func (m *mp4) writeSTSZ(w io.Writer, t *mp4trk) {
 }
 
 func (m *mp4) writeSTCO(w io.Writer, t *mp4trk) {
-	log.Printf("  stco %d", t.codec)
+	l.Printf("  stco %d", t.codec)
 	WriteTag(w, "stco", func (w io.Writer) {
 		WriteInt(w, 0, 4) // version & flags
 		WriteInt(w, len(t.chunkOffs), 4) // entry count
@@ -306,9 +306,9 @@ func (m *mp4) writeSTBL(w io.Writer, t *mp4trk) {
 func (m *mp4) writeMINF(w io.Writer, t *mp4trk) {
 	WriteTag(w, "minf", func (w io.Writer) {
 		switch t.codec {
-		case H264:
+		case av.H264:
 			m.writeVMHD(w, t)
-		case AAC:
+		case av.AAC:
 			m.writeSMHD(w, t)
 		}
 		m.writeDINF(w, t)
@@ -376,7 +376,7 @@ func (m *mp4) writeMOOV(w io.Writer) {
 }
 
 
-func (m *mp4) trkAdd(t *mp4trk, p *Packet) {
+func (m *mp4) trkAdd(t *mp4trk, p *av.Packet) {
 	if len(t.extra) == 0 {
 		t.extra = p.Data
 		return
@@ -403,10 +403,10 @@ func newTrk(codec, idx int) (t *mp4trk) {
 		stsc: []mp4stsc{{1, 1, 1}},
 	}
 	switch codec {
-	case H264:
+	case av.H264:
 		t.timeScale = 25000
 		t.stts = []mp4stts{{1, 1000}}
-	case AAC:
+	case av.AAC:
 		t.timeScale = 44100
 		t.stts = []mp4stts{{1, 1000}}
 	}
@@ -431,7 +431,7 @@ func Create(path string) (m *mp4, err error) {
 	return
 }
 
-func (m *mp4) Write(p *Packet) {
+func (m *mp4) Write(p *av.Packet) {
 	var ft *mp4trk
 	for _, t := range m.trk {
 		if t.codec == p.Codec && t.idx == p.Idx {
@@ -446,8 +446,16 @@ func (m *mp4) Write(p *Packet) {
 	m.trkAdd(ft, p)
 }
 
+func (m *mp4) WriteH264(p []byte) {
+	m.Write(&av.Packet{Codec:av.H264, Data:p})
+}
+
+func (m *mp4) WriteAAC(p []byte) {
+	m.Write(&av.Packet{Codec:av.AAC, Data:p})
+}
+
 func (m *mp4) Close() {
-	log.Printf("  ntrk %v", len(m.trk))
+	l.Printf("  ntrk %v", len(m.trk))
 
 	var b bytes.Buffer
 
@@ -460,7 +468,7 @@ func (m *mp4) Close() {
 	m.writeMOOV(m.w2)
 
 	size, _ := m.w.Seek(0, 1)
-	log.Printf("mdat off %v size %v", m.mdatOff, size)
+	l.Printf("mdat off %v size %v", m.mdatOff, size)
 
 	WriteInt(m.w2, int(size)+8, 4)
 	WriteString(m.w2, "mdat")

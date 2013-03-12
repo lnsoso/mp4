@@ -5,6 +5,7 @@ import (
 	"io"
 	"fmt"
 	"bytes"
+	"github.com/go-av/av"
 )
 
 func (m *mp4) readFTYP(r io.Reader) {
@@ -338,12 +339,12 @@ func (m *mp4) parseTrk(trk *mp4trk) {
 	l.Printf(" si %d len %d\n", si, len(trk.stts))
 
 	if trk.cc4 == "avc1" {
-		trk.codec = H264
+		trk.codec = av.H264
 		m.vtrk = trk
 		m.PPS = trk.extra
 	}
 	if trk.cc4 == "mp4a" {
-		trk.codec = AAC
+		trk.codec = av.AAC
 		m.atrk = trk
 		m.AACCfg = trk.extra
 	}
